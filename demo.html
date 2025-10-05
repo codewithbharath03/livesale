@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lottery Registration & Payment</title>
+<style>
+  body { font-family: Arial; background: #f0f8ff; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+  .container { background: #fff; padding: 25px 30px; border-radius: 15px; box-shadow: 0 0 15px rgba(0,0,0,0.2); width: 380px; text-align: center; margin: 10px; }
+  input, button { width: 100%; padding: 10px; margin: 8px 0; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; }
+  button { background: #111827; color: white; border: none; cursor: pointer; }
+  button:hover { background: #333; }
+  img { width: 200px; margin: 15px 0; }
+  #verify-section, #paymentSection, #uploadSection, #ticketSection { display: none; }
+  #ticketCode { font-size: 20px; font-weight: bold; color: #2e8b57; margin-top: 15px; }
+</style>
+</head>
+<body>
+
+<div class="container" id="registerSection">
+  <h2>Register</h2>
+  <input type="text" id="regUsername" placeholder="Username">
+  <input type="email" id="regEmail" placeholder="Email">
+  <button id="sendCodeBtn">Send Verification Code</button>
+  
+  <div id="verify-section">
+    <input type="text" id="regCode" placeholder="Enter verification code">
+    <input type="password" id="regPassword" placeholder="Password">
+    <input type="password" id="regPassword2" placeholder="Confirm Password">
+    <button id="registerBtn">Register</button>
+  </div>
+</div>
+
+<div class="container" id="loginSection">
+  <h2>Login</h2>
+  <input type="text" id="loginUsername" placeholder="Username">
+  <input type="password" id="loginPassword" placeholder="Password">
+  <button onclick="login()">Login</button>
+</div>
+
+<div class="container" id="paymentSection">
+  <h2>Payment</h2>
+  <p>Please pay ₹100 to get your lottery ticket:</p>
+  <p>UPI ID: <b>your-upi-id@upi</b></p>
+  <img src="https://api.qrserver.com/v1/create-qr-code/?data=upi://pay?pa=your-upi-id@upi&pn=Lottery&am=100&cu=INR" alt="UPI QR">
+  <button onclick="showUpload()">Upload Payment Screenshot</button>
+</div>
+
+<div class="container" id="uploadSection">
+  <h2>Upload Screenshot</h2>
+  <input type="file" id="screenshot" accept="image/*">
+  <button onclick="generateCode()">Submit Screenshot</button>
+</div>
+
+<div class="container" id="ticketSection">
+  <h2>Lottery Ticket</h2>
+  <div id="ticketCode"></div>
+</div>
+
+<script>
+// ---------------- User Storage ----------------
+const STORAGE_KEY = "user_accounts";
+function loadUsers(){ return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); }
+function saveUsers(u){ localStorage.setItem(STORAGE_KEY, JSON.stringify(u)); }
+function pseudoHash(s){ let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))|0; return String(h>>>0); }
+
+// --------------- Registration ----------------
+let emailCode = "";
+document.getElementById("sendCodeBtn").onclick = () => {
+  const email = document.getElementById("regEmail").value.trim();
+  if(!email) return alert("Enter your email!");
+  emailCode = Math.floor(100000 + Math.random()*900000).toString();
+  alert("Verification code sent to " + email + "\nCode: " + emailCode);
+  document.getElementById("verify-section").style.display = "block";
+  document.getElementById("sendCodeBtn").disabled = true;
+};
+
+document.getElementById("registerBtn").onclick = () => {
+  const u = document.getElementById("regUsername").value.trim();
+  const e = document.getElementById("regEmail").value.trim();
+  const c = document.getElementById("regCode").value.trim();
+  const p = document.getElementById("regPassword").value;
+  const p2 = document.getElementById("regPassword2").value;
+
+  if(!u||!e||!c||!p||!p2) return alert("Fill all fields!");
+  if(p!==p2) return alert("Passwords do not match!");
+  if(c!==emailCode) return alert("Incorrect verification code!");
+
+  const users = loadUsers();
+  if(users[u]) return alert("Username already exists!");
+
+  users[u] = { email: e, password: pseudoHash(p), lotteryCode: null };
+  saveUsers(users);
+
+  alert("Registration successful!");
+  document.getElementById("registerSection").style.display = "none";
+  document.getElementById("loginSection").style.display = "block";
+};
+
+// ---------------- Login ----------------
+function login() {
+  const u = document.getElementById("loginUsername").value.trim();
+  const p = document.getElementById("loginPassword").value;
+  const users = loadUsers();
+
+  if(!users[u]) return alert("No such user!");
+  if(users[u].password!==pseudoHash(p)) return alert("Incorrect password!");
+
+  localStorage.setItem("loggedInUser", u);
+  alert("Login successful!");
+  document.getElementById("loginSection").style.display = "none";
+  document.getElementById("paymentSection").style.display = "block";
+}
+
+// --------------- Payment & Lottery ----------------
+function showUpload() {
+  document.getElementById("paymentSection").style.display = "none";
+  document.getElementById("uploadSection").style.display = "block";
+}
+
+function generateCode() {
+  const fileInput = document.getElementById("screenshot");
+  if(fileInput.files.length===0) return alert("Upload your payment screenshot first.");
+
+  const users = loadUsers();
+  const u = localStorage.getItem("loggedInUser");
+  if(!users[u]) return alert("User not found!");
+
+  if(!users[u].lotteryCode){
+    let code = '';
+    let chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    for(let i=0;i<8;i++) code += chars.charAt(Math.floor(Math.random()*chars.length));
+    users[u].lotteryCode = code;
+    saveUsers(users);
+  }
+
+  document.getElementById("ticketCode").innerText = "Your Lottery Ticket Code: " + users[u].lotteryCode;
+  document.getElementById("uploadSection").style.display = "none";
+  document.getElementById("ticketSection").style.display = "block";
+}
+</script>
+
+</body>
+</html>
